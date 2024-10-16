@@ -31,11 +31,7 @@ using namespace std;
 
 //TIme accumulated KD-Tree parameters
 #define KT_HORIZON 50
-#define KT_NUM 2
-
-//Drone safe region
-#define SAFE_DIST 0.45
-
+#define KT_NUM 1
 
 #define IN_CLOSE_SET 'a'
 #define IN_OPEN_SET 'b'
@@ -62,6 +58,13 @@ class PathNode {
   }
   ~PathNode(){};
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+  void profile(const std::string& function_name, std::function<void()> func) {
+      auto start = std::chrono::high_resolution_clock::now();
+      func();
+      auto stop = std::chrono::high_resolution_clock::now();
+      auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
+      ROS_INFO_STREAM("Execution time of PathNode class " << function_name << ": " << duration.count() << " ms");
+  }
 };
 typedef PathNode* PathNodePtr;
 
@@ -69,6 +72,13 @@ class NodeComparator {
  public:
   bool operator()(PathNodePtr node1, PathNodePtr node2) {
     return node1->f_score > node2->f_score;
+  }
+  void profile(const std::string& function_name, std::function<void()> func) {
+      auto start = std::chrono::high_resolution_clock::now();
+      func();
+      auto stop = std::chrono::high_resolution_clock::now();
+      auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
+      ROS_INFO_STREAM("Execution time of NodeComparator class " << function_name << ": " << duration.count() << " ms");
   }
 };
 
@@ -118,6 +128,14 @@ class NodeHashTable {
     data_3d_.clear();
     data_4d_.clear();
   }
+
+  void profile(const std::string& function_name, std::function<void()> func) {
+      auto start = std::chrono::high_resolution_clock::now();
+      func();
+      auto stop = std::chrono::high_resolution_clock::now();
+      auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
+      ROS_INFO_STREAM("Execution time of NodeHashTable class " << function_name << ": " << duration.count() << " ms");
+  }
 };
 
 class KinodynamicAstar {
@@ -153,10 +171,14 @@ class KinodynamicAstar {
   /* search */
   double max_tau_, init_max_tau_;
   double max_vel_, max_acc_;
+  double min_alt_, max_alt_;
   double w_time_, horizon_, lambda_heu_;
   int allocate_num_, check_num_;
   double tie_breaker_;
   bool optimistic_;
+  double min_safe_dist_;
+
+  std::string map_frame_;
 
   /* map */
   double resolution_, inv_resolution_, time_resolution_, inv_time_resolution_;
@@ -181,9 +203,17 @@ class KinodynamicAstar {
                     Eigen::Matrix<double, 6, 1>& state1, Eigen::Vector3d um,
                     double tau);
 
-  ros::Publisher kd_ptcloud_pub,kd_ptcloud_pub2;
+  ros::Publisher kd_ptcloud_pub_filtered,kd_ptcloud_pub_accumulated;
 
   ofstream outfile;
+
+  void profile(const std::string& function_name, std::function<void()> func) {
+      auto start = std::chrono::high_resolution_clock::now();
+      func();
+      auto stop = std::chrono::high_resolution_clock::now();
+      auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
+      ROS_INFO_STREAM("Execution time of KinodynamicAstar class " << function_name << ": " << duration.count() << " ms");
+  }
 
  public:
   KinodynamicAstar(){};
