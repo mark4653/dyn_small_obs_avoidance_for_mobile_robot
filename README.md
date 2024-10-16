@@ -1,6 +1,6 @@
 # dyn_small_obs_avoidance
 
-### Avoiding dynamic small obstacles with onboard sensing and computating on aerial robots
+### Avoiding dynamic small obstacles with onboard sensing and computating on mobile robots
 
 This repository is used for UAV dynamic small obstacles avoidance. It is a complete system for lidar-based UAV, including FAST-LIO slam, time-accumulated KD-Tree mapping and kinodynamic A* search modules. It is able to avoid dynamic small obstacles (down to 20mm diameter bars) by running at 50Hz.
 
@@ -28,6 +28,9 @@ PCL    >= 1.8,   Follow [PCL Installation](https://pointclouds.org/downloads/).
 
 Eigen  >= 3.3.4, Follow [Eigen Installation](http://eigen.tuxfamily.org/index.php?title=Main_Page).
 
+### 1.2. **FAST-LIO-LOCALIZATION**
+FAST-LIO-LOCALIZATION,   Follow [FAST-LIO-LOCALIZATION Installation](https://github.com/HViktorTsoi/FAST_LIO_LOCALIZATION).
+
 
 ## 2. Build
 Clone the repository and catkin_make:
@@ -45,30 +48,10 @@ Clone the repository and catkin_make:
     roslaunch path_planning demo.launch 
 ```
 
-### 3.2 Run rosbag or directly fly
-You can download our demos rosbag from https://drive.google.com/drive/folders/1knQwnrbwunGIvXzOL6wWKkCtOkGE22bG?usp=sharing
-And play the bag by:
-```
-    rosbag play XXX.bag
-```
+### 3.2 Set target point
 
-### 3.3 Set target point
-```
-    rostopic pub /goal geometry_msgs/PoseStamped '{header: {stamp: now, frame_id: "camera_init"}, pose: {position: {x: 5.0, y: 0.0, z: 1.0}, orientation: {w: 1.0}}}'
-```
-You can change the target point by setting different value of 'x','y','z' in the above command.
-
-# 4.Run with other equipments
-You can also run this planning program as a module with other point cloud input from other sensors (like depth camera D435i). But we have not yet test it on depth cameras.
-First, change the point cloud topic to your point cloud topic name in path_planning/launch/demo_withNOlidar.launch
-```
-    <remap from='/your_pointcloud_topic' to='/cloud_registered'/> 
-```
-Then, start the program:
-```
-    source devel/setup.bash
-    roslaunch path_planning demo_withNOlidar.launch 
-```
+Set the target point by pressing the '2D Nav Goal' button in the desired location.
 
 ## 5.Acknowledgments
-Thanks for FAST-PLANNER(Zhou, Boyu and Gao, Fei and Wang, Luqi and Liu, Chuhao and Shen, Shaojie. Robust and efficient quadrotor trajectory generation for fast autonomous flight), [FAST-PLANNER](https://github.com/HKUST-Aerial-Robotics/Fast-Planner.git).
+Thanks for FAST-PLANNER(Zhou, Boyu and Gao, Fei and Wang, Luqi and Liu, Chuhao and Shen, Shaojie. Robust and efficient quadrotor trajectory generation for fast autonomous flight), [FAST-PLANNER](https://github.com/HKUST-Aerial-Robotics/Fast-Planner.git)
+and VaidehiSom's Tweaks, [GITHUB](https://github.com/robotics-88/slam/tree/profiling-for-debugging).
