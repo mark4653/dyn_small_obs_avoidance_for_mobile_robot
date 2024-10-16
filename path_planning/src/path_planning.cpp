@@ -20,6 +20,7 @@
 #include <std_msgs/Int64.h>
 
 using std::unique_ptr;
+
 // Declear some global variables
 Eigen::Vector3d cur_pos;
 
@@ -62,7 +63,7 @@ public:
 		uav_odom = odm;
 	}
 
-	void setlocalpose(geometry_msgs::PoseStamped pose)
+	void setlocalpose(geometry_msgs::PoseWithCovariance pose)
 	{
 		local_pose = pose;
 	}
@@ -76,8 +77,8 @@ public:
 			goal_pt(2) = z;
 
 			std::cout << "Goal point set to: " << x << " " << y << " " << z << std::endl;
-
 			if(set_start)
+			    std::cout << "debug on" << std::endl;
 				plan();
 		}
 	}
@@ -135,11 +136,9 @@ public:
 				ros::Time t1 = ros::Time::now();
 
 				kino_path_finder_->reset();
-				
 				// Eigen::Vector3d start_vel(0,0,0);
 				Eigen::Vector3d start_acc(0,0,0);
 				Eigen::Vector3d goal_vel(0,0,0);
-
 				if(firstplan_flag == true || replan_time_index==-1 )// || (replan_time_index==(path_size_int64.data-1))
 				{
 				prev_start[0] = start_pt(0);
@@ -147,6 +146,7 @@ public:
 				prev_start[2] = start_pt(2);
 
 				int status = kino_path_finder_->search(start_pt, start_vel, start_acc, goal_pt, goal_vel, true);
+                std::cout << "plan debug" << std::endl;
 				std::cout << "[kino replan]: startpoint kinodynamic search" << std::endl;
 
 				if (status == KinodynamicAstar::NO_PATH) {
@@ -279,7 +279,7 @@ public:
 
 				for(int i = 0; i<kino_path.size();i++)
 				{
-					kino_marker.header.frame_id = "camera_init";
+					kino_marker.header.frame_id = "map";
 					kino_marker.header.stamp = ros::Time();
 					kino_marker.ns = "kino_path";
 					kino_marker.id = i;
@@ -312,11 +312,11 @@ public:
 					kino_nav_path_px4.poses.push_back(this_pose_stamped_px4);
 				}
 
-				kino_nav_path.header.frame_id = "camera_init";
+				kino_nav_path.header.frame_id = "map";
 				kino_nav_path.header.stamp = ros::Time::now();
 				kino_path_pub.publish(kino_nav_path);
 
-				kino_nav_path_px4.header.frame_id = "camera_init";
+				kino_nav_path_px4.header.frame_id = "map";
 				kino_nav_path_px4.header.stamp = ros::Time::now();
 				pos_pub.publish(kino_nav_path);
 				// vel_pub.publish(minjerk_velocity);
@@ -345,7 +345,7 @@ private:
 	nav_msgs::Path kino_nav_path_px4;
 
 	//odometry and local pose
-	geometry_msgs::PoseStamped local_pose;
+	geometry_msgs::PoseWithCovariance local_pose;
 	nav_msgs::Odometry uav_odom;
 
 	// goal state
@@ -374,7 +374,7 @@ void cloudCallback(const sensor_msgs::PointCloud2::ConstPtr &msg, planner* plann
 	// ROS_INFO("FROM ROS TO PCLOUD Size is %d",int(cloud_input.size()));
 	for (size_t i = 0; i < cloud_input.points.size(); i = i+2)
   	{
-    if(fabs(cloud_input.points[i].x - cur_pos(0))>20 || fabs(cloud_input.points[i].y - cur_pos(1))>20 || fabs(cloud_input.points[i].z - cur_pos(2))>20)
+    if(fabs(cloud_input.points[i].x - 0)>20 || fabs(cloud_input.points[i].y - 0)>20 || fabs(cloud_input.points[i].z - 0)>20)
 	{
 		continue;
 	}else{
@@ -384,7 +384,9 @@ void cloudCallback(const sensor_msgs::PointCloud2::ConstPtr &msg, planner* plann
 
 	ros::Time t2 = ros::Time::now();
  	// ROS_INFO("Pointcloud CUTOFF used %f s",(t2-t1).toSec());
-	
+    if (cloud_cutoff.points.empty()) {
+        std::cout << "after empty" << std::endl;
+        }
 	kino_path_finder_->setKdtree(cloud_cutoff);
 	planner_ptr->replan();
 }
@@ -393,22 +395,21 @@ nav_msgs::Odometry uav_odometry;
 void odomCb(const nav_msgs::Odometry::ConstPtr &msg, planner* planner_ptr)
 {
 	// ROS_INFO("RECEIVED ODOMETRY"); 
+
 	uav_odometry = *msg;
 	planner_ptr->setStart(msg->pose.pose.position.x, msg->pose.pose.position.y, msg->pose.pose.position.z, msg->twist.twist.linear.x, msg->twist.twist.linear.y, msg->twist.twist.linear.z,uav_odometry);
 	planner_ptr->init_start();
-	cur_pos(0) = msg->pose.pose.position.x;
-	cur_pos(1) = msg->pose.pose.position.y;
-	cur_pos(2) = msg->pose.pose.position.z;
 }
+
 
 void startCb(const geometry_msgs::PointStamped::ConstPtr &msg, planner* planner_ptr)
 {
 	planner_ptr->init_start();
 }
 
-void poseCb(const geometry_msgs::PoseStamped::ConstPtr &msg, planner* planner_ptr)
+void poseCb(const nav_msgs::Odometry::ConstPtr &msg, planner* planner_ptr)
 {
-	planner_ptr->setlocalpose(*msg);
+	planner_ptr->setlocalpose(msg->pose);
 }
 
 void goalCb(const geometry_msgs::PoseStamped::ConstPtr &msg, planner* planner_ptr)
@@ -439,12 +440,13 @@ int main(int argc, char **argv)
 
     // outfile.open("/home/dji/kong_ws/RRT-andjerk_ws/test_time/searching_time.txt", ios::out | ios::trunc );
 
-	ros::Subscriber odom_sub = n.subscribe<nav_msgs::Odometry>("/mavros/odometry/out", 1, boost::bind(&odomCb, _1, &planner_object));
-	ros::Subscriber pointcloud_sub = n.subscribe<sensor_msgs::PointCloud2>("/cloud_registered", 1, boost::bind(&cloudCallback, _1, &planner_object));
+	ros::Subscriber odom_sub = n.subscribe<nav_msgs::Odometry>("/localization", 1, boost::bind(&odomCb, _1, &planner_object));
+	
+	ros::Subscriber pointcloud_sub = n.subscribe<sensor_msgs::PointCloud2>("/velodyne_points", 1, boost::bind(&cloudCallback, _1, &planner_object));
 
-	ros::Subscriber pose_sub = n.subscribe<geometry_msgs::PoseStamped>("/mavros/local_position/pose", 100, boost::bind(&poseCb, _1, &planner_object));
+	ros::Subscriber pose_sub = n.subscribe<nav_msgs::Odometry>("/localization", 100, boost::bind(&poseCb, _1, &planner_object));
 
-	ros::Subscriber goal_sub = n.subscribe<geometry_msgs::PoseStamped>("/goal", 10000, boost::bind(&goalCb, _1, &planner_object));
+	ros::Subscriber goal_sub = n.subscribe<geometry_msgs::PoseStamped>("/move_base_simple/goal", 10000, boost::bind(&goalCb, _1, &planner_object));
 
 	ros::Subscriber time_index_sub = n.subscribe<std_msgs::Int64>("/demo_node/trajectory_time_index",1000,boost::bind(&timeindexCallBack, _1, &planner_object));
 
